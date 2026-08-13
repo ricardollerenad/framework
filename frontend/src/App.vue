@@ -1,7 +1,3 @@
 <template>
-  <LayoutMain />
+  <router-view />
 </template>
-
-<script setup lang="ts">
-import LayoutMain from './layouts/LayoutMain.vue'
-</script>
