@@ -70,7 +70,7 @@ server {
     client_max_body_size 20M;
 
     location / {
-        proxy_pass http://127.0.0.1:8081;
+        proxy_pass http://127.0.0.1:XXXX;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -78,7 +78,7 @@ server {
     }
 
     location /api/ {
-        proxy_pass http://127.0.0.1:8001/api/;
+        proxy_pass http://127.0.0.1:XXXX/api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -96,10 +96,29 @@ server {
     location /adminer/ {
         auth_basic "Restringido";
         auth_basic_user_file /etc/nginx/.htpasswd_sistema_1;
-        proxy_pass http://127.0.0.1:8082/;
+        proxy_pass http://127.0.0.1:XXXX/;
         proxy_set_header Host $host;
     }
+
+    location /admin/ {
+        proxy_pass http://127.0.0.1:8011/admin/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
+```  
+
+No hay que olvidarnos de darle los permisos 
+
+```bash
+sudo chmod o+x /home/ricardo
+sudo chmod o+x /home/ricardo/framework
+sudo chmod o+x /home/ricardo/framework/sistema_1
+sudo chmod o+x /home/ricardo/framework/sistema_1/backend
+sudo chmod -R o+rX /home/ricardo/framework/sistema_1/backend/staticfiles
+sudo chmod -R o+rX /home/ricardo/framework/sistema_1/backend/media
 ```  
 
 ## Paso 4 — habilítalo y protege Adminer:
@@ -134,6 +153,9 @@ docker compose up -d --build
 #Recarga Frontend
 docker compose up -d --build frontend
 
+#Crear Superusuario
+docker compose exec backend python manage.py createsuperuser
+
 #Comprueba que puertos estan libres
 sudo ss -tlnp | grep -E "8011|8091|8092"
 
@@ -147,9 +169,9 @@ sudo docker compose exec backend python manage.py migrate
 sudo docker compose exec backend python manage.py collectstatic --noinput
 ```  
 --- 
-- Frontend: http://localhost:8081
-- Backend API: http://localhost:8001/api/
-- Adminer (DB): http://localhost:8082
+- Frontend: http://localhost:XXXX
+- Backend API: http://localhost:XXXX/api/
+- Adminer (DB): http://localhost:XXXX
 
 ## 🌐 Desplegar en un servidor nuevo
 
