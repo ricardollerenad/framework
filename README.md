@@ -33,7 +33,7 @@ framework/
 
 ## 🚀 Levantar en local
 ---
-#Pasos para recrearlo
+# Pasos para recrearlo
 
 ## Paso 1. Subir los archivos a GitHub desde esta PC
 ```bash
@@ -127,6 +127,9 @@ docker compose up -d --force-recreate backend
 
 #Recarga Frontend
 docker compose up -d --build frontend
+
+#Comprueba que puertos estan libres
+sudo ss -tlnp | grep -E "8011|8091|8092"
 
 #Prepara las migraciones
 sudo docker compose exec backend python manage.py makemigrations
