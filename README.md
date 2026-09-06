@@ -125,6 +125,12 @@ Para recargar modulos o demas:
 #Recarga contenedor Backend
 docker compose up -d --force-recreate backend
 
+#Baja todo 
+docker compose down
+
+#Levanta todo
+docker compose up -d --build
+
 #Recarga Frontend
 docker compose up -d --build frontend
 
