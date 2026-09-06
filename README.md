@@ -122,8 +122,11 @@ sudo systemctl restart nginx
 
 Para recargar modulos o demas:
 ```bash
-#Recarga contenedor
+#Recarga contenedor Backend
 docker compose up -d --force-recreate backend
+
+#Recarga Frontend
+docker compose up -d --build frontend
 
 #Prepara las migraciones
 sudo docker compose exec backend python manage.py makemigrations
