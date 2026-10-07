@@ -66,5 +66,10 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserProfileSerializer(request.user)
-        return Response(serializer.data)
+        user = request.user
+        return Response({
+            "username": user.username,
+            "email": user.email,
+            "is_superuser": user.is_superuser,
+            "roles": list(user.groups.values_list('name', flat=True)),
+        })

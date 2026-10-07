@@ -67,8 +67,22 @@
 </template>
 
 <script setup lang="ts">
-import { useNavigationStore } from '@/stores/navigation'
-import TopbarUserMenu from '@/shared/components/TopbarUserMenu.vue'
+import { computed } from 'vue'
+import { useAuthStore } from '@/modules/auth/store'
 
-const navStore = useNavigationStore()
+const auth = useAuthStore()
+
+const menuItems = computed(() => {
+  const items = [{ label: 'Inicio', to: '/' }]
+  if (auth.hasRole('Administrador')) {
+    items.push({ label: 'Administración', to: '/administracion' })
+  }
+  if (auth.hasRole('Propietario')) {
+    items.push({ label: 'Mis pagos', to: '/pagos' })
+  }
+  if (auth.hasRole('Seguridad')) {
+    items.push({ label: 'Control de acceso', to: '/control-acceso' })
+  }
+  return items
+})
 </script>

@@ -15,11 +15,27 @@ const routes = [
       ...dashboardRoutes,
     ],
   },
+  {
+    path: '/administracion',
+    component: () => import('@/modules/administracion/views/Panel.vue'),
+    meta: { requiresAuth: true, roles: ['Administrador'] }
+  }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+router.beforeEach((to, from, next) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.accessToken) {
+    return next('/login')
+  }
+  if (to.meta.roles && !to.meta.roles.some(r => auth.hasRole(r))) {
+    return next('/no-autorizado')   // o a donde tenga sentido
+  }
+  next()
 })
 
 router.beforeEach((to, from, next) => {

@@ -1,82 +1,58 @@
-# 🏗️ Arquitectura y convenciones
+# ARCHITECTURE
 
-Reglas de dónde va cada cosa. Si vas a crear un archivo nuevo y no sabes dónde ponerlo, este documento responde.
+**Arquitectura:** monolito modular — API REST (Django) + SPA (Vue), cada dominio es un módulo autocontenido.
+**Patrón en capas dentro de cada módulo:** `urls → views → serializers → models` (y `services.py` cuando la lógica crece; las vistas no contienen lógica de negocio compleja).
 
-## Backend (Django)
-
+## Backend
 ```
 backend/
-├── core/                  # SOLO configuración global. Nada de lógica de negocio aquí.
-│   ├── settings.py
-│   ├── urls.py             # Únicamente incluye las urls de cada app: path('api/auth/', include('apps.authentication.urls'))
-│   └── wsgi.py / asgi.py
-│
-├── apps/                  # Cada módulo de negocio = una carpeta = una Django app
-│   ├── authentication/
-│   │   ├── models.py        # User extendido, UserSession, etc.
-│   │   ├── serializers.py
-│   │   ├── views.py
-│   │   ├── urls.py
-│   │   └── migrations/
-│   └── <siguiente_modulo>/  # ej: apps/inventory/, apps/billing/, etc.
-│
-└── common/                # Código reutilizable ENTRE apps (no es una app en sí)
-    ├── permissions.py       # Permisos custom de DRF reutilizables
-    ├── pagination.py
-    ├── mixins.py
-    └── middleware.py         # Ej: middleware de trazabilidad de sesión
+├── core/                 # SOLO configuración
+│   ├── modules.py        # ★ lista de módulos habilitados (único enganche)
+│   ├── settings.py       # INSTALLED_APPS se arma desde modules.py
+│   └── urls.py           # /api/<url_prefix>/ se arma desde modules.py
+├── common/               # Reutilizable ENTRE módulos (no es una app)
+│   ├── rbac.py           # motor de permisos (get_user_permission_codes, user_has_permission)
+│   ├── permissions.py    # HasPermission (clase DRF, fail-closed)
+│   ├── middleware.py     # SessionActivityMiddleware
+│   └── pagination.py
+└── apps/<modulo>/        # apps.py (label + url_prefix) · models · serializers · views · urls
+    └── permissions.py    # catálogo: PERMISSIONS y DEFAULT_ROLES del módulo
 ```
+Módulos incluidos: `health`, `authentication`, `roles` (ver `docs/modules/`).
 
-**Regla de oro:** si el código es específico de un dominio (autenticación, inventario, facturación...) va en `apps/<dominio>/`. Si lo usan 2+ apps, va en `common/`.
-
-## Frontend (Vue 3)
-
+## Frontend
 ```
 frontend/src/
-├── modules/                # Cada feature = una carpeta autocontenida
-│   ├── auth/
-│   │   ├── views/            # LoginView.vue, etc.
-│   │   ├── components/        # Componentes SOLO usados dentro de auth
-│   │   ├── stores/             # authStore.js (Pinia)
-│   │   ├── services/            # authService.js (llamadas a la API)
-│   │   └── routes.js             # Rutas propias del módulo, se importan en router/index.js
-│   └── <siguiente_modulo>/
-│
-├── shared/                 # Reutilizable ENTRE módulos
-│   ├── components/           # Botones, modales, tablas genéricas, BaseIcon.vue
-│   ├── composables/            # useAuth.js, usePagination.js, etc.
-│   └── utils/                    # formatters, validators
-│
-├── layouts/                # Estructuras de página completas
-│   └── LayoutMain.vue        # Sidebar + Topbar (el "shell" tipo Odoo)
-│
-├── router/
-│   └── index.js               # Importa las rutas de cada módulo, no las define todas aquí
-│
-└── stores/
-    └── navigation.js           # Estructura del menú lateral (items + submenús)
+├── modules/
+│   ├── registry.js       # ★ auto-descubre modules/*/manifest.js
+│   └── <modulo>/         # manifest.js · views/ · components/ · stores/ · services/
+├── shared/               # utils (http.js, tokens.js, errors.js) · composables (useCan, useNavigation) · components
+├── layouts/LayoutMain.vue
+└── router/index.js       # arma rutas desde los manifests + guard de auth y permisos
 ```
+El **menú** y las **rutas** salen de los `manifest.js`; el menú se filtra con los permisos del usuario.
 
-**Regla de oro:** si un componente/vista solo lo usa un módulo, vive dentro de ese módulo. Si lo usan 2+ módulos (un botón genérico, un ícono base), va a `shared/`.
+## Cómo se engancha un módulo
+| Dónde | Qué | Quién lo hace |
+|---|---|---|
+| `backend/core/modules.py` | una línea con el nombre | `new-module.sh` |
+| `frontend/src/modules/<m>/manifest.js` | se auto-descubre | no requiere edición central |
 
-## Convención de nombres
-- Componentes Vue: `PascalCase.vue` (ej. `TopbarUserMenu.vue`)
-- Composables: `useAlgo.js`
-- Stores Pinia: `algoStore.js`
-- Apps Django: `snake_case`, en plural cuando aplique (`authentication`, no `auth_app`)
+Borrar un módulo = borrar sus 2 carpetas + su línea en `modules.py`.
 
-## Sistema de menú lateral (referencia rápida — se detalla en Fase 3 del ROADMAP)
+## Flujo de autorización
+1. `POST /api/auth/login/` → JWT con claim `sid` (id de sesión estable) y registro en `UserSession`.
+2. `GET /api/auth/me/` → usuario + `roles` + `permissions` (superusuario: `['*']`).
+3. Front: `authStore.can(codigo)` oculta menú/botones; el router bloquea rutas con `meta.permission`.
+4. Back: `HasPermission` valida cada petición (la UI no es seguridad, solo comodidad).
 
-El menú vive en `stores/navigation.js` como un array de objetos:
-```js
-{
-  key: 'ventas',
-  label: 'Ventas',
-  icon: 'ShoppingCartIcon',       // nombre del ícono de Heroicons
-  submenus: [
-    { key: 'pedidos', label: 'Pedidos', path: '/ventas/pedidos' },
-    { key: 'clientes', label: 'Clientes', path: '/ventas/clientes' },
-  ]
-}
-```
-Cuando quieras agregar un ítem nuevo al sidebar, solo agregas un objeto a este array — no tocas el `LayoutMain.vue`. Esto se explica paso a paso en la Fase 3.
+## Puertos y Nginx
+| Servicio | Puerto host (127.0.0.1) | Notas |
+|---|---|---|
+| backend | `BACKEND_PORT` (def. 8001) | gunicorn |
+| frontend | `FRONTEND_PORT` (def. 8081) | Nginx del contenedor: SPA + proxy de `/api`, `/admin`, `/static` |
+| adminer | `ADMINER_PORT` (def. 8082) | en producción solo vía `/adminer/` con clave |
+
+- **Local:** entra por `http://localhost:<FRONTEND_PORT>`; no necesitas Nginx en tu PC.
+- **Producción:** el Nginx del host (plantilla `nginx-host/vhost.conf.template`) envía `/api|/admin|/static` al backend, `/adminer/` a Adminer (con clave) y `/` al frontend. Certbot añade HTTPS.
+- Un solo archivo de vhost por dominio, en `sites-available` + `sites-enabled` (nunca también en `conf.d`).
